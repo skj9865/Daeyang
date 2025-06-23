@@ -195,7 +195,8 @@ class ADC_GUI:
         self.ax.legend()
         self.canvas.draw()
 
-        self.root.after(300, self.plot_update_loop)
+        # self.root.after(300, self.plot_update_loop)
+        self.after_id = self.root.after(300, self.plot_update_loop)
 
     def send_adc_stop(self):
         if not self.serial_port or not self.serial_port.is_open:
@@ -305,9 +306,16 @@ class ADC_GUI:
             self.serial_port.close()
             print("UART 연결 해제됨.")
 
+    def on_close(self):
+        if hasattr(self, "after_id"):
+            self.root.after_cancel(self.after_id)
+        if self.serial_port and self.serial_port.is_open:
+            self.serial_port.close()
+        self.root.destroy()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = ADC_GUI(root)
-    root.protocol("WM_DELETE_WINDOW", root.destroy)  # X버튼 누르면 안전하게 종료
+    root.protocol("WM_DELETE_WINDOW", app.on_close)  # X버튼 누르면 안전하게 종료
     root.mainloop()
