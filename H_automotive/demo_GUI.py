@@ -15,25 +15,24 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import random  # 테스트용 시뮬레이션 데이터
 import tkinter.font as tkFont
+import time
 
 
 class ADC_GUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ADC GUI")
+        self.root.geometry("1600x900")  # 창 크기 설정
 
         # ✅ 기본 폰트 크기 조정
         default_font = tkFont.nametofont("TkDefaultFont")
-        default_font.configure(size=12)  # 원하는 크기로 변경 (예: 12~14)
+        default_font.configure(size=16)  # 원하는 크기로 변경 (예: 12~14)
 
         self.uart_rx_queue = queue.Queue()
         self.adc_data = {1: [], 2: [], 3: []}  # ADC1,2,3 각각 데이터 리스트
 
         self.serial_port = None
         self.create_widgets()
-
-        self.uart_rx_thread = threading.Thread(target=self.uart_read_loop, daemon=True)
-        self.uart_rx_thread.start()
 
     def create_widgets(self):
         ################### first line
@@ -42,7 +41,7 @@ class ADC_GUI:
 
         self.uart_ports = self.get_serial_ports()
         self.uart_combo = ttk.Combobox(
-            self.root, values=self.uart_ports, state="readonly", width=12
+            self.root, values=self.uart_ports, state="readonly", width=20
         )
         self.uart_combo.grid(row=0, column=1)
         if self.uart_ports:
@@ -57,7 +56,7 @@ class ADC_GUI:
 
         # Baudrate 입력
         tk.Label(self.root, text="Baudrate").grid(row=0, column=3, padx=5, pady=5)
-        self.baud_entry = ttk.Entry(self.root, width=10)
+        self.baud_entry = ttk.Entry(self.root, width=20)
         self.baud_entry.insert(0, "115200")
         self.baud_entry.grid(row=0, column=4)
 
@@ -73,11 +72,13 @@ class ADC_GUI:
         ################### second line
         # Reg 입력 필드
         self.reg_entries = []
+        default_values = ["80", "0c", "43", "01", "05", "04", "c2", "00"]
         for i in range(8):
             row, col = 1 + i // 4, (i % 4) * 2
             tk.Label(self.root, text=f"Reg {i+1:02}").grid(row=row, column=col)
-            entry = ttk.Entry(self.root, width=10)
+            entry = ttk.Entry(self.root, width=20, font=("Arial", 12))
             entry.grid(row=row, column=col + 1, padx=5, pady=5)
+            entry.insert(0, default_values[i])
             self.reg_entries.append(entry)
 
         # ADC 채널 드롭다운
@@ -108,26 +109,31 @@ class ADC_GUI:
         ttk.Button(self.root, text="Send", command=self.send_mode).grid(
             row=3, column=5, padx=5
         )
-        ttk.Button(self.root, text="ADC Start", command=self.send_adc_start).grid(
-            row=3, column=7, padx=5
+        ttk.Button(
+            self.root, text="ADC Start", command=self.send_adc_start, width=20
+        ).grid(
+            row=3,
+            column=7,
+            columnspan=2,
+            padx=5,
         )
-        ttk.Button(self.root, text="ADC Stop", command=self.send_adc_stop).grid(
-            row=3, column=8, padx=5, pady=15
-        )
+        # ttk.Button(self.root, text="ADC Stop", command=self.send_adc_stop).grid(
+        #    row=3, column=8, padx=5, pady=15
+        # )
         # Plot 설명
-        tk.Label(self.root, text="Red : ADC1   Blue : ADC2   Green : ADC2").grid(
-            row=4, column=0, columnspan=7, pady=5
+        tk.Label(self.root, text="Red : ADC1   Blue : ADC2   Green : ADC3").grid(
+            row=4, column=0, columnspan=7, pady=1
         )
 
         # Plot 영역 생성
-        self.fig, self.ax = plt.subplots(figsize=(7, 3))
+        self.fig, self.ax = plt.subplots(figsize=(12, 7))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         self.canvas.get_tk_widget().grid(row=5, column=0, columnspan=7)
 
         # ADC 상태 표시
         tk.Label(self.root, text="ADC status").grid(row=4, column=7, columnspan=2)
         self.status_label = tk.Label(
-            self.root, text="Normal", bg="cornflower blue", width=20, height=10
+            self.root, text="Normal", bg="cornflower blue", width=25, height=15
         )
         self.status_label.grid(row=5, column=7, columnspan=2, padx=20, pady=20)
 
@@ -140,7 +146,7 @@ class ADC_GUI:
                     header = self.serial_port.read(1)
                     if not header:
                         continue
-
+                    # print(f"[DEBUG] 수신 헤더: {header.hex().upper()}")
                     head_val = header[0]
 
                     if head_val in [0x01, 0x02, 0x03]:  # ADC 데이터
@@ -179,7 +185,7 @@ class ADC_GUI:
                 status_val = item[1]
                 if status_val == 0x01:
                     self.status_label.config(text="Error", bg="red")
-                elif status_val == 0x02:
+                elif status_val == 0x00:
                     self.status_label.config(text="Normal", bg="cornflower blue")
 
         # Plot
@@ -191,12 +197,12 @@ class ADC_GUI:
         if self.adc_data[3]:
             self.ax.plot(self.adc_data[3], "g-", label="ADC3")
 
-        self.ax.set_ylim(0, 2**22)  # 22bit 범위
-        self.ax.legend()
+        self.ax.set_ylim(1000, 16000)  # 22bit 범위
+        self.ax.legend(loc="upper right")
         self.canvas.draw()
 
         # self.root.after(300, self.plot_update_loop)
-        self.after_id = self.root.after(300, self.plot_update_loop)
+        self.after_id = self.root.after(200, self.plot_update_loop)
 
     def send_adc_stop(self):
         if not self.serial_port or not self.serial_port.is_open:
@@ -268,12 +274,14 @@ class ADC_GUI:
             print(f"잘못된 입력값: {e}")
             return
 
-        # 3. 전체 데이터 구성 (1 + 8 바이트)
-        tx_data = bytes([head_byte] + reg_bytes)
-        print(f"TX → {tx_data.hex(' ').upper()}")
+        # 3. 바이트 단위로 전송
+        tx_sequence = [head_byte] + reg_bytes
+        print("TX (1바이트씩):", " ".join(f"{b:02X}" for b in tx_sequence))
 
         try:
-            self.serial_port.write(tx_data)
+            for byte in tx_sequence:
+                self.serial_port.write(bytes([byte]))
+                time.sleep(0.005)
         except Exception as e:
             print(f"UART 전송 실패: {e}")
 
@@ -298,6 +306,13 @@ class ADC_GUI:
         try:
             self.serial_port = serial.Serial(port, int(baud), timeout=1)
             print(f"{port} 연결됨 (baud: {baud})")
+            print(f"serial_port.is_open: {self.serial_port.is_open}")
+
+            self.uart_rx_thread = threading.Thread(
+                target=self.uart_read_loop, daemon=True
+            )
+            self.uart_rx_thread.start()
+
         except Exception as e:
             print(f"연결 실패: {e}")
 
