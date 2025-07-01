@@ -22,7 +22,7 @@ class ADC_GUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ADC GUI")
-        self.root.geometry("1600x900")  # 창 크기 설정
+        self.root.geometry("1300x850")  # 창 크기 설정
 
         # ✅ 기본 폰트 크기 조정
         default_font = tkFont.nametofont("TkDefaultFont")
@@ -37,11 +37,11 @@ class ADC_GUI:
     def create_widgets(self):
         ################### first line
         # UART 채널, Baudrate
-        tk.Label(self.root, text="UART 채널").grid(row=0, column=0, padx=5, pady=30)
+        tk.Label(self.root, text="UART 채널").grid(row=0, column=0, padx=5, pady=20)
 
         self.uart_ports = self.get_serial_ports()
         self.uart_combo = ttk.Combobox(
-            self.root, values=self.uart_ports, state="readonly", width=20
+            self.root, values=self.uart_ports, state="readonly", width=15
         )
         self.uart_combo.grid(row=0, column=1)
         if self.uart_ports:
@@ -56,17 +56,17 @@ class ADC_GUI:
 
         # Baudrate 입력
         tk.Label(self.root, text="Baudrate").grid(row=0, column=3, padx=5, pady=5)
-        self.baud_entry = ttk.Entry(self.root, width=20)
+        self.baud_entry = ttk.Entry(self.root, width=13,font=("Arial",14))
         self.baud_entry.insert(0, "115200")
         self.baud_entry.grid(row=0, column=4)
 
         # 연결/해제 버튼
-        ttk.Button(self.root, text="UART Connect", command=self.connect_uart).grid(
-            row=0, columnspan=2, column=5, padx=15
+        ttk.Button(self.root, text="  UART Connect  ", command=self.connect_uart).grid(
+            row=0, columnspan=2, column=5, padx=10
         )
         ttk.Button(
             self.root, text="UART Disconnect", command=self.disconnect_uart
-        ).grid(row=0, columnspan=2, column=7, padx=15)
+        ).grid(row=0, column=7, padx=10)
         ################### first line
 
         ################### second line
@@ -76,7 +76,7 @@ class ADC_GUI:
         for i in range(8):
             row, col = 1 + i // 4, (i % 4) * 2
             tk.Label(self.root, text=f"Reg {i+1:02}").grid(row=row, column=col)
-            entry = ttk.Entry(self.root, width=20, font=("Arial", 12))
+            entry = ttk.Entry(self.root, width=13, font=("Arial", 12))
             entry.grid(row=row, column=col + 1, padx=5, pady=5)
             entry.insert(0, default_values[i])
             self.reg_entries.append(entry)
@@ -86,58 +86,78 @@ class ADC_GUI:
             self.root,
             values=["ADC ch. 1", "ADC ch. 2", "ADC ch. 3"],
             state="readonly",
-            width=12,
+            width=10,
+            font=("Arial",13),
         )
-        self.adc_channel_combo.grid(row=1, column=8, padx=5)
+        self.adc_channel_combo.grid(row=3, column=0, padx=5)
         self.adc_channel_combo.current(0)  # 기본값 설정
 
         # ADC Setting 버튼
         ttk.Button(self.root, text="Reg setting", command=self.set_adc_channel).grid(
-            row=2, column=8, pady=5
+            row=3, column=1, pady=5
         )
 
         # Fault detection 및 모드 전환
-        tk.Label(self.root, text="ADC fault detection mode setting").grid(
-            row=3, column=0, columnspan=4, pady=5
+        tk.Label(self.root, text="ADC fault detection mode setting",font=("Arial",14)).grid(
+            row=3, column=2, columnspan=2, pady=5
         )
         self.mode_combo = ttk.Combobox(
-            self.root, values=["Mode 1", "Mode 2", "Mode 3"], state="readonly", width=10
+            self.root, values=["Mode 1", "Mode 2", "Mode 3"], state="readonly", width=10, font=("Arial",14)
         )
         self.mode_combo.grid(row=3, column=4)
         self.mode_combo.current(0)  # 기본값 설정
 
-        ttk.Button(self.root, text="Send", command=self.send_mode).grid(
+        ttk.Button(self.root, text="Mode setting", command=self.send_mode).grid(
             row=3, column=5, padx=5
         )
         ttk.Button(
             self.root, text="ADC Start", command=self.send_adc_start, width=20
         ).grid(
             row=3,
-            column=7,
+            column=6,            
             columnspan=2,
             padx=5,
         )
         # ttk.Button(self.root, text="ADC Stop", command=self.send_adc_stop).grid(
         #    row=3, column=8, padx=5, pady=15
         # )
+        
+        tk.Label(self.root, text="").grid(row=4, column=0, columnspan=6, pady=5) # empty row
         # Plot 설명
+        
         tk.Label(self.root, text="Red : ADC1   Blue : ADC2   Green : ADC3").grid(
-            row=4, column=0, columnspan=7, pady=1
+            row=5, column=0, columnspan=6, pady=1
         )
 
         # Plot 영역 생성
-        self.fig, self.ax = plt.subplots(figsize=(12, 7))
+        self.fig, self.ax = plt.subplots(figsize=(12, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
-        self.canvas.get_tk_widget().grid(row=5, column=0, columnspan=7)
+        self.canvas.get_tk_widget().grid(row=6, column=0, columnspan=6)
 
         # ADC 상태 표시
-        tk.Label(self.root, text="ADC status").grid(row=4, column=7, columnspan=2)
+        tk.Label(self.root, text="ADC status").grid(row=5, column=6, columnspan=2)
         self.status_label = tk.Label(
             self.root, text="Normal", bg="cornflower blue", width=25, height=15
         )
-        self.status_label.grid(row=5, column=7, columnspan=2, padx=20, pady=20)
+        self.status_label.grid(row=6, column=6, columnspan=2, padx=20, pady=20)
 
         self.plot_update_loop()
+        
+        ######################################################################################  
+        # self.root.grid_columnconfigure(0,weight=1)
+        # self.root.grid_columnconfigure(1,weight=1)        
+        
+        style = ttk.Style()
+        style.configure("TButton", font=("Arial",14),padding=10)
+        style.configure("TEntry", font=("Arial",14),padding=10)
+        style.configure("TCombobox", font=("Arial",14),padding=10)       
+        
+        style.configure("Status.TLabel", background="cornflower blue", foreground="white", font=("Arial", 16), padding=10)
+        self.status_label = ttk.Label(self.root, text="Normal", style="Status.TLabel")
+        
+        self.default_font = tkFont.Font(family="Arial", size=14)
+        self.root.option_add("*Font", self.default_font)
+        ######################################################################################  
 
     def uart_read_loop(self):
         while True:
