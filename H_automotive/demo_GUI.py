@@ -152,9 +152,6 @@ class ADC_GUI:
         style.configure("TEntry", font=("Arial",14),padding=10)
         style.configure("TCombobox", font=("Arial",14),padding=10)       
         
-        style.configure("Status.TLabel", background="cornflower blue", foreground="white", font=("Arial", 16), padding=10)
-        self.status_label = ttk.Label(self.root, text="Normal", style="Status.TLabel")
-        
         self.default_font = tkFont.Font(family="Arial", size=14)
         self.root.option_add("*Font", self.default_font)
         ######################################################################################  
