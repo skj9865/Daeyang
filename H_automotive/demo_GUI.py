@@ -22,7 +22,7 @@ class ADC_GUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ADC GUI")
-        self.root.geometry("1300x850")  # 창 크기 설정
+        self.root.geometry("1550x1000")  # 창 크기 설정
 
         # ✅ 기본 폰트 크기 조정
         default_font = tkFont.nametofont("TkDefaultFont")
@@ -56,7 +56,7 @@ class ADC_GUI:
 
         # Baudrate 입력
         tk.Label(self.root, text="Baudrate").grid(row=0, column=3, padx=5, pady=5)
-        self.baud_entry = ttk.Entry(self.root, width=13,font=("Arial",14))
+        self.baud_entry = ttk.Entry(self.root, width=13, font=("Arial", 14))
         self.baud_entry.insert(0, "115200")
         self.baud_entry.grid(row=0, column=4)
 
@@ -87,7 +87,7 @@ class ADC_GUI:
             values=["ADC ch. 1", "ADC ch. 2", "ADC ch. 3"],
             state="readonly",
             width=10,
-            font=("Arial",13),
+            font=("Arial", 13),
         )
         self.adc_channel_combo.grid(row=3, column=0, padx=5)
         self.adc_channel_combo.current(0)  # 기본값 설정
@@ -98,11 +98,15 @@ class ADC_GUI:
         )
 
         # Fault detection 및 모드 전환
-        tk.Label(self.root, text="ADC fault detection mode setting",font=("Arial",14)).grid(
-            row=3, column=2, columnspan=2, pady=5
-        )
+        tk.Label(
+            self.root, text="ADC fault detection mode setting", font=("Arial", 14)
+        ).grid(row=3, column=2, columnspan=2, pady=5)
         self.mode_combo = ttk.Combobox(
-            self.root, values=["Mode 1", "Mode 2", "Mode 3"], state="readonly", width=10, font=("Arial",14)
+            self.root,
+            values=["Mode 1", "Mode 2", "Mode 3"],
+            state="readonly",
+            width=10,
+            font=("Arial", 14),
         )
         self.mode_combo.grid(row=3, column=4)
         self.mode_combo.current(0)  # 기본값 설정
@@ -114,17 +118,19 @@ class ADC_GUI:
             self.root, text="ADC Start", command=self.send_adc_start, width=20
         ).grid(
             row=3,
-            column=6,            
+            column=6,
             columnspan=2,
             padx=5,
         )
         # ttk.Button(self.root, text="ADC Stop", command=self.send_adc_stop).grid(
         #    row=3, column=8, padx=5, pady=15
         # )
-        
-        tk.Label(self.root, text="").grid(row=4, column=0, columnspan=6, pady=5) # empty row
+
+        tk.Label(self.root, text="").grid(
+            row=4, column=0, columnspan=6, pady=5
+        )  # empty row
         # Plot 설명
-        
+
         tk.Label(self.root, text="Red : ADC1   Blue : ADC2   Green : ADC3").grid(
             row=5, column=0, columnspan=6, pady=1
         )
@@ -142,19 +148,19 @@ class ADC_GUI:
         self.status_label.grid(row=6, column=6, columnspan=2, padx=20, pady=20)
 
         self.plot_update_loop()
-        
-        ######################################################################################  
+
+        ######################################################################################
         # self.root.grid_columnconfigure(0,weight=1)
-        # self.root.grid_columnconfigure(1,weight=1)        
-        
+        # self.root.grid_columnconfigure(1,weight=1)
+
         style = ttk.Style()
-        style.configure("TButton", font=("Arial",14),padding=10)
-        style.configure("TEntry", font=("Arial",14),padding=10)
-        style.configure("TCombobox", font=("Arial",14),padding=10)       
-        
+        style.configure("TButton", font=("Arial", 14), padding=10)
+        style.configure("TEntry", font=("Arial", 14), padding=10)
+        style.configure("TCombobox", font=("Arial", 14), padding=10)
+
         self.default_font = tkFont.Font(family="Arial", size=14)
         self.root.option_add("*Font", self.default_font)
-        ######################################################################################  
+        ######################################################################################
 
     def uart_read_loop(self):
         while True:
@@ -198,15 +204,15 @@ class ADC_GUI:
                 head, value = item
                 adc_idx = head
                 self.adc_data[adc_idx].append(value)
-                if len(self.adc_data[adc_idx]) > 100:
-                    self.adc_data[adc_idx] = self.adc_data[adc_idx][-100:]
+                if len(self.adc_data[adc_idx]) > 1000:
+                    self.adc_data[adc_idx] = self.adc_data[adc_idx][-1000:]
 
             elif item[0] == "status":  # Fault status 처리
                 status_val = item[1]
                 if status_val == 0x01:
                     self.status_label.config(text="Error", bg="red")
                 elif status_val == 0x00:
-                    self.status_label.config(text="Normal", bg="cornflower blue")
+                    self.status_label.config(text="Normal", bg="lime green")
 
         # Plot
         self.ax.clear()
@@ -219,7 +225,7 @@ class ADC_GUI:
         if self.adc_data[3]:
             v3 = [self.adc_to_voltage(val) for val in self.adc_data[3]]
             self.ax.plot(v3, "g-", label="ADC3")
-        
+
         self.ax.set_xlabel("Sample (n)")
         self.ax.set_ylabel("Voltage (V)")
         self.ax.set_ylim(0.2, 3.2)
