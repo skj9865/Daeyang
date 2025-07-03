@@ -137,7 +137,7 @@ class ADC_GUI:
         # ADC 상태 표시
         tk.Label(self.root, text="ADC status").grid(row=5, column=6, columnspan=2)
         self.status_label = tk.Label(
-            self.root, text="Normal", bg="cornflower blue", width=25, height=15
+            self.root, text="Normal", bg="lime green", width=25, height=15
         )
         self.status_label.grid(row=6, column=6, columnspan=2, padx=20, pady=20)
 
@@ -184,6 +184,9 @@ class ADC_GUI:
             else:
                 break
 
+    def adc_to_voltage(self, adc_val):
+        return (adc_val / (2**14 - 1)) * 3.3  # 16383 기준
+
     def plot_update_loop(self):
         if not self.root.winfo_exists():  # 창이 닫힌 경우 종료
             return
@@ -208,13 +211,18 @@ class ADC_GUI:
         # Plot
         self.ax.clear()
         if self.adc_data[1]:
-            self.ax.plot(self.adc_data[1], "r-", label="ADC1")
+            v1 = [self.adc_to_voltage(val) for val in self.adc_data[1]]
+            self.ax.plot(v1, "r-", label="ADC1")
         if self.adc_data[2]:
-            self.ax.plot(self.adc_data[2], "b-", label="ADC2")
+            v2 = [self.adc_to_voltage(val) for val in self.adc_data[2]]
+            self.ax.plot(v2, "b-", label="ADC2")
         if self.adc_data[3]:
-            self.ax.plot(self.adc_data[3], "g-", label="ADC3")
-
-        self.ax.set_ylim(1000, 16000)  # 22bit 범위
+            v3 = [self.adc_to_voltage(val) for val in self.adc_data[3]]
+            self.ax.plot(v3, "g-", label="ADC3")
+        
+        self.ax.set_xlabel("Sample (n)")
+        self.ax.set_ylabel("Voltage (V)")
+        self.ax.set_ylim(0.2, 3.2)
         self.ax.legend(loc="upper right")
         self.canvas.draw()
 
