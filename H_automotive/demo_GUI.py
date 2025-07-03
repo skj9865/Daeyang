@@ -256,7 +256,10 @@ class ADC_GUI:
                 v_after = [self.adc_to_voltage(val) for val in self.calib_data[ch]]
                 x = list(range(len(v_after)))
                 self.ax1.plot(x, v_after, color + "-", label=f"ADC{ch} After")
-                
+        
+        self.ax1.set_ylim(0, 3.3)
+        self.ax1.legend(loc="upper right")
+        self.canvas1.draw()
         
         self.ax2.clear()
         self.ax2.set_title("Before vs After Calibration")
