@@ -22,7 +22,7 @@ class ADC_GUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ADC GUI")
-        self.root.geometry("1550x1000")  # 창 크기 설정
+        self.root.geometry("1300x900")  # 창 크기 설정
 
         # ✅ 기본 폰트 크기 조정
         default_font = tkFont.nametofont("TkDefaultFont")
@@ -30,6 +30,7 @@ class ADC_GUI:
 
         self.uart_rx_queue = queue.Queue()
         self.adc_data = {1: [], 2: [], 3: []}  # ADC1,2,3 각각 데이터 리스트
+        self.calib_data = {1: [], 2: [], 3: []}
 
         self.serial_port = None
         self.create_widgets()
@@ -135,17 +136,34 @@ class ADC_GUI:
             row=5, column=0, columnspan=6, pady=1
         )
 
+        self.plot_frame_top = ttk.Frame(self.root)
+        self.plot_frame_top.grid(row=6, column=0, columnspan=6)
+        
+        self.plot_frame_bottom = ttk.Frame(self.root)
+        self.plot_frame_bottom.grid(row=7, column=0, columnspan=6)
+        
+        # 상단 Plot (보정 전)
+        self.fig1, self.ax1 = plt.subplots(figsize=(12, 4))
+        self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.plot_frame_top)
+        self.canvas1.get_tk_widget().pack()
+        
+        # 하단 Plot (보정 후)
+        self.fig2, self.ax2 = plt.subplots(figsize=(12, 4))
+        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.plot_frame_bottom)
+        self.canvas2.get_tk_widget().pack()
+
+
         # Plot 영역 생성
-        self.fig, self.ax = plt.subplots(figsize=(12, 6))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
-        self.canvas.get_tk_widget().grid(row=6, column=0, columnspan=6)
+        # self.fig, self.ax = plt.subplots(figsize=(12, 6))
+        # self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
+        # self.canvas.get_tk_widget().grid(row=6, column=0, columnspan=6)
 
         # ADC 상태 표시
         tk.Label(self.root, text="ADC status").grid(row=5, column=6, columnspan=2)
         self.status_label = tk.Label(
             self.root, text="Normal", bg="lime green", width=25, height=15
         )
-        self.status_label.grid(row=6, column=6, columnspan=2, padx=20, pady=20)
+        self.status_label.grid(row=6, rowspan=2, column=6, columnspan=2, padx=20, pady=20)
 
         self.plot_update_loop()
 
@@ -173,12 +191,17 @@ class ADC_GUI:
                     head_val = header[0]
 
                     if head_val in [0x01, 0x02, 0x03]:  # ADC 데이터
-                        payload = self.serial_port.read(3)
-                        if len(payload) == 3:
-                            adc_raw = (
-                                (payload[0] << 16) | (payload[1] << 8) | payload[2]
-                            )
-                            self.uart_rx_queue.put((head_val, adc_raw))
+                        payload = self.serial_port.read(6)
+                        if len(payload) == 6:
+                            raw_before = (payload[0] << 16) | (payload[1] << 8) | payload[2]
+                            raw_after  = (payload[3] << 16) | (payload[4] << 8) | payload[5]
+                            self.uart_rx_queue.put((head_val, raw_before, raw_after))
+                        # payload = self.serial_port.read(3)
+                        # if len(payload) == 3:
+                            # adc_raw = (
+                            #     (payload[0] << 16) | (payload[1] << 8) | payload[2]
+                            # )
+                            # self.uart_rx_queue.put((head_val, adc_raw))
 
                     elif head_val == 0x11:  # Fault detection status
                         status = self.serial_port.read(1)
@@ -200,12 +223,21 @@ class ADC_GUI:
         while not self.uart_rx_queue.empty():
             item = self.uart_rx_queue.get()
 
-            if isinstance(item[0], int):  # ADC 데이터
-                head, value = item
-                adc_idx = head
-                self.adc_data[adc_idx].append(value)
-                if len(self.adc_data[adc_idx]) > 1000:
-                    self.adc_data[adc_idx] = self.adc_data[adc_idx][-1000:]
+
+            if isinstance(item[0], int):  # (헤더, before, after)
+                head, before, after = item
+                self.adc_data[head].append(before)
+                self.calib_data[head].append(after)
+        
+                if len(self.adc_data[head]) > 2000:
+                    self.adc_data[head] = self.adc_data[head][-2000:]
+                    self.calib_data[head] = self.calib_data[head][-2000:]
+            # if isinstance(item[0], int):  # ADC 데이터
+            #     head, value = item
+            #     adc_idx = head
+            #     self.adc_data[adc_idx].append(value)
+            #     if len(self.adc_data[adc_idx]) > 1000:
+            #         self.adc_data[adc_idx] = self.adc_data[adc_idx][-1000:]
 
             elif item[0] == "status":  # Fault status 처리
                 status_val = item[1]
@@ -214,23 +246,58 @@ class ADC_GUI:
                 elif status_val == 0x00:
                     self.status_label.config(text="Normal", bg="lime green")
 
-        # Plot
-        self.ax.clear()
-        if self.adc_data[1]:
-            v1 = [self.adc_to_voltage(val) for val in self.adc_data[1]]
-            self.ax.plot(v1, "r-", label="ADC1")
-        if self.adc_data[2]:
-            v2 = [self.adc_to_voltage(val) for val in self.adc_data[2]]
-            self.ax.plot(v2, "b-", label="ADC2")
-        if self.adc_data[3]:
-            v3 = [self.adc_to_voltage(val) for val in self.adc_data[3]]
-            self.ax.plot(v3, "g-", label="ADC3")
+        self.ax1.clear()
+        self.ax1.set_title("After Calibration")
+        self.ax1.set_ylabel("Voltage (V)")
+        self.ax1.set_xlabel("Sample")
+        
+        for ch, color in zip([1, 2, 3], ["r", "b", "g"]):
+            if self.calib_data[ch]:
+                v_after = [self.adc_to_voltage(val) for val in self.calib_data[ch]]
+                x = list(range(len(v_after)))
+                self.ax1.plot(x, v_after, color + "-", label=f"ADC{ch} After")
+                
+        
+        self.ax2.clear()
+        self.ax2.set_title("Before vs After Calibration")
+        self.ax2.set_ylabel("Voltage (V)")
+        self.ax2.set_xlabel("Sample")
+        
+        for ch, color in zip([1, 2, 3], ["r", "b", "g"]):
+            # Before: 점선
+            if self.adc_data[ch]:
+                v_before = [self.adc_to_voltage(val) for val in self.adc_data[ch]]
+                x_before = list(range(len(v_before)))
+                self.ax2.plot(x_before, v_before, color + "--", label=f"ADC{ch} Before")
+        
+            # After: 실선
+            if self.calib_data[ch]:
+                v_after = [self.adc_to_voltage(val) for val in self.calib_data[ch]]
+                x_after = list(range(len(v_after)))
+                self.ax2.plot(x_after, v_after, color + "-", label=f"ADC{ch} After")
+        
+        self.ax2.set_ylim(0, 3.3)
+        self.ax2.legend(loc="upper right")
+        self.canvas2.draw()
 
-        self.ax.set_xlabel("Sample (n)")
-        self.ax.set_ylabel("Voltage (V)")
-        self.ax.set_ylim(0.2, 3.2)
-        self.ax.legend(loc="upper right")
-        self.canvas.draw()
+
+        # # Plot
+        # self.ax.clear()
+        # if self.adc_data[1]:
+        #     v1 = [self.adc_to_voltage(val) for val in self.adc_data[1]]
+        #     self.ax.plot(v1, "r-", label="ADC1")
+        # if self.adc_data[2]:
+        #     v2 = [self.adc_to_voltage(val) for val in self.adc_data[2]]
+        #     self.ax.plot(v2, "b-", label="ADC2")
+        # if self.adc_data[3]:
+        #     v3 = [self.adc_to_voltage(val) for val in self.adc_data[3]]
+        #     self.ax.plot(v3, "g-", label="ADC3")
+
+        # self.ax.set_xlabel("Sample (n)")
+        # self.ax.set_ylabel("Voltage (V)")
+        # self.ax.set_ylim(0.2, 3.2)
+        # self.ax.legend(loc="upper right")
+        # self.canvas.draw()
 
         # self.root.after(300, self.plot_update_loop)
         self.after_id = self.root.after(200, self.plot_update_loop)
